@@ -1,5 +1,9 @@
 # FOMO Robinhood Radar
 
+**Mason's fork:** [Local macOS setup and controls](docs/LOCAL_SETUP.md).
+The local dashboard runs at http://127.0.0.1:4322 with keyless collection and manual
+scoring. The project description and screenshots below are from upstream.
+
 ![tests](https://github.com/cvxv666/fomo-robinhood-radar/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-00ff85)
 ![cost](https://img.shields.io/badge/runs%20on-%240%20%2F%20month-00ff85)

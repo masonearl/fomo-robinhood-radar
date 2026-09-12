@@ -19,6 +19,7 @@ const signals: Signal[] = feed?.signals ?? [];
 const top = signals.length ? Math.max(...signals.map((s) => s.conviction)) : 1;
 const down = !stats;
 const lead = signals[0];
+const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
 ---
 <Base
   title="FOMO Robinhood Radar — what the profitable Robinhood Chain wallets are buying"
@@ -44,17 +45,30 @@ const lead = signals[0];
       </div>
     </div>
 
-    <div class="hero-brain"><Brain /></div>
+    <div class="hero-brain">
+      {localMode ? (
+        <div class="local-pipeline">
+          <p class="eyebrow">Your local database</p>
+          <dl>
+            <div><dt>Wallets discovered</dt><dd>{stats?.traders ?? '—'}</dd></div>
+            <div><dt>On-chain fills collected</dt><dd>{stats?.fills.toLocaleString('en-US') ?? '—'}</dd></div>
+            <div><dt>Wallets scored</dt><dd>{stats?.scored ?? '—'}</dd></div>
+          </dl>
+          <p>Scoring mode: manual review. The collector saves wallet history for review before it enters the trusted signal feeds.</p>
+        </div>
+      ) : <Brain />}
+    </div>
   </section>
 
   <!-- ── the token: nothing until PUBLIC_TOKEN_CA is set ────── -->
   <Token />
 
   <!-- ── instrument strip ───────────────────────────────────── -->
+  {stats && stats.scored === 0 && <p class="empty">Collecting history for {stats.traders} wallets. No wallets have been scored yet, so the trusted signal feeds are empty.</p>}
   {!down && (
     <div class="rack">
       <dl class="strip">
-        <div><dt>Traders</dt><dd>{stats.scored}</dd></div>
+        <div><dt>Scored</dt><dd>{stats.scored}</dd></div>
         <div><dt>Follow</dt><dd class="g">{stats.active}</dd></div>
         <div><dt>Watch</dt><dd class="y">{stats.watch}</dd></div>
         <div><dt>Drop</dt><dd class="c">{stats.dropped}</dd></div>
@@ -106,7 +120,7 @@ const lead = signals[0];
 
   {signals.length === 0 && !down && (
     <p class="empty">
-      No token has two trusted buyers in the last {hours}h. That is information too — the cohort is sitting still.
+      {stats?.scored === 0 ? 'Signals are waiting for wallet scoring.' : `No token meets this feed’s trusted-buyer criteria in the last ${hours}h.`}
     </p>
   )}
 
@@ -161,6 +175,12 @@ const lead = signals[0];
     overflow: hidden;
   }
   .hero-brain { position: relative; min-width: 0; }
+  .local-pipeline { margin: 35px 0; padding: 25px; background: #101a15; border: 1px solid #263d31; }
+  .local-pipeline dl { margin: 20px 0; }
+  .local-pipeline dl div { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid #263d31; }
+  .local-pipeline dt { color: #b3cbbc; font-size: 14px; }
+  .local-pipeline dd { font-size: 30px; color: #00ff85; }
+  .local-pipeline > p:last-child { color: #b3cbbc; font-size: 14px; line-height: 1.6; }
   /* the instrument grid: 1px lines only, no gradient, no wash */
   .hero .grid {
     position: absolute; inset: 0; pointer-events: none; opacity: 0.16;

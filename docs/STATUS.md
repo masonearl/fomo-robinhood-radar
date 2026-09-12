@@ -1,5 +1,16 @@
 # fomo-agent — состояние проекта и фронт работ
 
+## Fork-local setup — 2026-09-12
+
+This fork has a macOS analytics installation with four managed local services:
+API (127.0.0.1:8767), site (127.0.0.1:4322), collector, and 20-second watcher.
+Initial collection: 147 discovered wallets, 546 direct-RPC fills, zero errors.
+Scoring is manual and unscored contexts can be exported; no model API key or
+brokerage execution is configured. Upstream tests: 195 passed. Astro build passed.
+See [LOCAL_SETUP.md](LOCAL_SETUP.md) for commands, current source configuration,
+history limitations, and remaining scoring setup. Upstream historical notes below
+describe the author's deployment, not this new local database.
+
 Обновлено: 2026-09-12 (сессия 20). Исходный ТЗ: `C:\Users\Honor\Downloads\fomo-agent-claude-code-prompt_1.md` (фазы 0–5). Этот файл — единственный источник правды о том, что сделано и что дальше. Обновляй его в конце каждой сессии.
 
 **Сессия 20: нетерпеливый клиент, кейс CATGPT, аудит сайта и бота.**

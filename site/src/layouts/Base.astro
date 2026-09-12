@@ -22,6 +22,7 @@ const canonical = new URL(Astro.url.pathname, base).href;
 const ogImage = new URL(og.src, base).href;
 // No repository yet, and a link to github.com itself is worse than no link at all.
 const repo = import.meta.env.PUBLIC_REPO_URL ?? '';
+const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
 ---
 <!doctype html>
 <html lang="en">
@@ -31,7 +32,7 @@ const repo = import.meta.env.PUBLIC_REPO_URL ?? '';
   <title>{title}</title>
   <meta name="description" content={description} />
   <link rel="canonical" href={canonical} />
-  {noindex && <meta name="robots" content="noindex" />}
+  {(noindex || localMode) && <meta name="robots" content="noindex" />}
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="FOMO Robinhood Radar" />
@@ -72,6 +73,8 @@ const repo = import.meta.env.PUBLIC_REPO_URL ?? '';
       </nav>
     </header>
 
+    {localMode && <p class="local-instance">Mason’s local Radar · wallet research · no brokerage connection or order execution</p>}
+
     <main>
       <slot />
     </main>
@@ -79,9 +82,13 @@ const repo = import.meta.env.PUBLIC_REPO_URL ?? '';
     <footer class="foot">
       <span>FOMO Robinhood Radar · research, not financial advice</span>
       <span>Robinhood Chain · 4663</span>
-      <a href="/docs">API</a>
+      <a href={localMode ? 'http://127.0.0.1:8767/docs' : '/docs'}>API</a>
       {repo && <a href={repo}>source</a>}
     </footer>
   </div>
 </body>
 </html>
+
+<style>
+  .local-instance { padding: 12px 16px; border: 1px solid #263d31; background: #101a15; color: #b3cbbc; font-size: 13px; line-height: 1.5; }
+</style>
