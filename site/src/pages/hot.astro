@@ -36,10 +36,10 @@ const tone = (v: number | null) => (v === null ? 'm' : v >= 2 ? 'g' : v < 0.5 ? 
   </div>
   <p class="verdict" style="margin-bottom:20px">
     The signal feed asks who the cohort is in over a day. This asks a narrower question: did the
-    conviction arrive <b>all at once</b>? A burst is {feed?.delta ?? 4} of it — four wallets
-    scoring 80, say — from at least {feed?.min_wallets ?? 3} trusted wallets, each making its
-    first buy of the token inside the last {feed?.window_min ?? 30} minutes. The chain is read every
-    twenty seconds, so what is on this page happened minutes ago, not last pass.
+    conviction arrive <b>all at once</b>? A burst requires at least {feed?.delta ?? 4} conviction,
+    calculated as the sum of (score/100)², from at least {feed?.min_wallets ?? 3} trusted wallets.
+    Each wallet must make its first observed buy inside the last {feed?.window_min ?? 30} minutes.
+    The watcher targets twenty-second polling; source delays can make updates slower.
   </p>
 
   <dl class="strip">
@@ -55,9 +55,9 @@ const tone = (v: number | null) => (v === null ? 'm' : v >= 2 ? 'g' : v < 0.5 ? 
 
   {feed && now.length === 0 && (
     <p class="note">
-      <b>Nothing is bursting this minute.</b> Three trusted wallets have to enter the same name
-      inside half an hour before it appears here; most of the day, nothing does. The list below
-      is what did, and what came of it.
+      <b>No token currently meets the burst rule.</b> Both the conviction threshold and the
+      minimum number of first buyers must be met inside the configured window.
+      The list below contains recorded past bursts.
     </p>
   )}
 

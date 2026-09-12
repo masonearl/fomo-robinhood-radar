@@ -33,9 +33,18 @@ const winners = closed.filter((p) => (p.realized ?? 0) > 0).length;
         {t.red_flags.map((f) => <span class="badge flag">{f}</span>)}
       </div>
       {t.summary && <p class="verdict">{t.summary}</p>}
+      {t.model && <p class="note">Scorer: {t.model}</p>}
       <p class="addr">{t.address}</p>
     </div>
   </div>
+
+  {t.score_evidence && <section class="score-evidence">
+    <h3>Evidence behind this score</h3>
+    <p>{t.score_evidence.verified_fills} verified fills · {t.score_evidence.closed_cycles} matched closed cycles
+      · {t.score_evidence.closed_tokens} tokens · {t.score_evidence.observed_span_hours} hours of observed activity.</p>
+    <p>{t.score_evidence.unknown_cost_tokens} tokens excluded because the available inventory or pricing was incomplete.</p>
+    <p class="note">{t.score_evidence.caveat}</p>
+  </section>}
 
   <dl class="strip">
     <div><dt>fomo 30d</dt><dd class={t.fomo_pnl && t.fomo_pnl > 0 ? 'g' : 'm'}>{usd(t.fomo_pnl)}</dd></div>
@@ -222,6 +231,8 @@ const winners = closed.filter((p) => (p.realized ?? 0) > 0).length;
 </Base>
 
 <style>
+  .score-evidence { margin: 24px 0; padding: 20px; border: 1px solid #263d31; }
+  .score-evidence p { margin-top: 10px; font-size: 14px; line-height: 1.6; }
   .kind {
     font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--crimson); border: 1px dashed var(--crimson); border-radius: 9999px;

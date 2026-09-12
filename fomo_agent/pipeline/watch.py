@@ -27,7 +27,8 @@ from ..config import settings
 from ..sources.rpc import CHAIN, RobinhoodRPC, RpcError
 from .hot import hot_now, record
 from .provenance import classify
-from .track import TRACKED
+from .track import tracked_statuses
+from . import state
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class Watch:
 
 
 def roster(conn: sqlite3.Connection) -> list[str]:
-    return sorted({r["address"].lower() for r in db.traders_by_status(conn, *TRACKED)
+    return sorted({r["address"].lower() for r in db.traders_by_status(conn, *tracked_statuses())
                    if (r["chain"] or CHAIN) == CHAIN and r["address"].startswith("0x")})
 
 
@@ -173,14 +174,18 @@ def run(conn: sqlite3.Connection, once: bool = False, rpc: RobinhoodRPC | None =
              settings.hot_window_min)
     while True:
         started = time.monotonic()
+        state.put(conn, "watcher", "running", {"poll_s": settings.watch_poll_s})
         try:
             s = tick(conn, w)
+            state.put(conn, "watcher", "ok", s, success=True)
             if s["fills"] or s["hot"]:
                 log.info("watch: %s", s)
         except RpcError as e:
+            state.put(conn, "watcher", "error", {"error": str(e)[:300]})
             log.warning("watch: rpc says %s — waiting a minute", e)
             time.sleep(60)
         except Exception as e:  # noqa: BLE001 - a bad tick is a missed tick, not a dead watcher
+            state.put(conn, "watcher", "error", {"error": str(e)[:300]})
             log.exception("watch tick failed: %s", e)
         if once:
             return {"ticks": w.ticks, "fills": w.fills, "alerts": w.alerts}

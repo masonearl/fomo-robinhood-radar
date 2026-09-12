@@ -6,12 +6,13 @@ import Ident from '../components/Ident.astro';
 import { getLeaderboard, getStats, get, usd, verdictClass, verdictLabel } from '../lib/api';
 
 const valid = ['active', 'watch', 'dropped', 'all'];
-const raw = Astro.url.searchParams.get('status') ?? 'active';
+const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
+const raw = Astro.url.searchParams.get('status') ?? (localMode ? 'all' : 'active');
 const status = valid.includes(raw) ? raw : 'active';
 
 const [stats, board, dist] = await Promise.all([
   getStats(),
-  getLeaderboard(status, 120),
+  getLeaderboard(status, localMode ? 400 : 120),
   get<{ buckets: number[]; total: number; peak: number }>('/api/distribution'),
 ]);
 const traders = board?.traders ?? [];
@@ -52,11 +53,11 @@ const blurb: Record<string, string> = {
           </div>
         ))}
       </div>
-      <p class="histnote">
+      {localMode ? <p class="histnote">Scores below 60 stay out of signal feeds. Open a wallet to see its evidence and any missing history. These rules rank observed records; they do not predict returns.</p> : <p class="histnote">
         The mass sits between 60 and 90 because a wallet has to reach the fomo leaderboard before we
         ever look at it. The tail below 50 is what that filter misses: bots, one-hit tickets and
         books that lose more than they win.
-      </p>
+      </p>}
     </Panel>
   )}
 

@@ -215,6 +215,12 @@ MIGRATIONS: dict[int, str] = {
     -- each wallet's own idea of a normal buy, which is what a dust floor is relative to
     ALTER TABLE traders ADD COLUMN median_buy_usd REAL;
     """,
+    19: """
+    CREATE TABLE IF NOT EXISTS pipeline_state(
+      name TEXT PRIMARY KEY, updated_at INTEGER NOT NULL, last_success INTEGER,
+      status TEXT NOT NULL, details_json TEXT NOT NULL
+    );
+    """,
 }
 
 STATUSES = ("candidate", "tracking", "active", "watch", "dropped", "needs_review")

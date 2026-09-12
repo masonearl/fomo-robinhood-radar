@@ -320,6 +320,13 @@ def stats(conn: sqlite3.Connection = Depends(get_conn)) -> dict:
     }
 
 
+@app.get("/api/system", tags=["meta"])
+def system_status(conn: sqlite3.Connection = Depends(get_conn)) -> dict:
+    """Collector/watcher/scoring freshness, independent of whether wallets traded."""
+    from .pipeline.system_status import snapshot
+    return snapshot(conn)
+
+
 @app.get("/api/activity", tags=["meta"])
 def activity(
     hours: int = Query(48, ge=6, le=336),

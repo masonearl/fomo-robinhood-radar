@@ -2,12 +2,41 @@
 import Base from '../layouts/Base.astro';
 import { getStats } from '../lib/api';
 const s = await getStats();
+const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
 ---
 <Base title="About — FOMO Robinhood Radar" section="about"
       description="How FOMO Robinhood Radar resolves a fomo.family profile to a real Robinhood Chain wallet, tracks it for free, and judges whether the result is skill or one lucky bag.">
   <div class="pagehead"><h1>About</h1></div>
   <p class="subhead">what this is and how it works</p>
 
+  {localMode ? <section style="margin-bottom:30px">
+    <h3>Your local research pipeline</h3>
+    <p>This installation discovers wallets through the public RH Trenches directory and collects
+      their fills from the Robinhood Chain RPC. It keeps its own database and works backward
+      toward seven days of history. The watcher's target interval is 20 seconds; requests and
+      rate limits can make a pass take longer.</p>
+    <h3>Automatic scores, with visible evidence</h3>
+    <p>The local scorer uses transparent rules over verified, priced fills. It matches position
+      cycles and excludes unknown inventory, gifts, and unverified fills. It does not use the
+      author's wallet scores or train a neural copy of a trader. A wallet's page shows the
+      evidence and limitations behind its score.</p>
+    <p>Default signal eligibility needs 20 usable verified fills, eight closed cycles across four
+      tokens, and 24 hours of observed activity. Large unresolved open cost or one dominant win
+      keeps a wallet below the signal cutoff. The 30 bps cost buffer on each leg is an assumption;
+      it does not reproduce the fees or prices a follower would actually receive.</p>
+    <h3>What a signal means</h3>
+    <p>The signals feed requires at least two buyers scoring 60 or higher. Bursts use first buys
+      inside a rolling window and sum each wallet's squared score divided by 100 squared.
+      The Bursts page shows its configured threshold. A score ranks an observed sample and
+      does not predict future profit.</p>
+    <h3>Operating this version</h3>
+    <p>The homepage checks watcher, collector, and scorer freshness separately. An empty feed
+      can mean that the system is still collecting enough evidence. Collection and scoring
+      run automatically while this Mac is signed in, awake, and online. This installation
+      has no brokerage connection or funded order execution.</p>
+    <p>Open <a href="/leaderboard?status=all">every wallet</a> to inspect scores or
+      <a href="http://127.0.0.1:8767/docs">the local API documentation</a> to inspect the data.</p>
+  </section> : <div>
   <p style="font-size:16px;margin-bottom:25px">
     The fomo.family leaderboard shows a number. It does not show whether that number came from
     skill or one lucky ticket, which wallet the person actually trades from, what they are
@@ -77,6 +106,7 @@ const s = await getStats();
     <p class="note"><b>A score judges process, not price.</b> It is an opinion about whether a
     result looks repeatable. It is not a prediction.</p>
   </div>
+  </div>}
 
   {s && <dl class="strip">
     <div><dt>Traders</dt><dd>{s.scored}</dd></div>

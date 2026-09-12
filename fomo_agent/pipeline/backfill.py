@@ -20,13 +20,15 @@ polite, not because anybody is charging.
 from __future__ import annotations
 
 import logging
+import hashlib
 import sqlite3
 import time
 
 from .. import db
 from ..config import settings
 from ..sources.rpc import CHAIN, RobinhoodRPC
-from .track import TRACKED
+from .track import tracked_statuses
+from . import state
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +47,9 @@ def wallets_to_backfill(conn: sqlite3.Connection) -> list[str]:
     rows = conn.execute(
         f"SELECT t.address address, MIN(tr.ts) first_ts FROM traders t "
         f"LEFT JOIN trades tr ON tr.address = t.address "
-        f"WHERE t.chain = ? AND t.status IN ({','.join('?' * len(TRACKED))}) "
+        f"WHERE t.chain = ? AND t.status IN ({','.join('?' * len(tracked_statuses()))}) "
         "GROUP BY t.address ORDER BY COALESCE(first_ts, 0) DESC",
-        (CHAIN, *TRACKED),
+        (CHAIN, *tracked_statuses()),
     ).fetchall()
     return [r["address"] for r in rows if r["address"].startswith("0x")]
 
@@ -65,7 +67,7 @@ def store(conn: sqlite3.Connection, found: dict, rpc: RobinhoodRPC) -> tuple[int
 
 
 def backfill(conn: sqlite3.Connection, days: int = 30, rpc: RobinhoodRPC | None = None,
-             max_requests: int | None = None) -> dict:
+             max_requests: int | None = None, resume: bool = False) -> dict:
     """Fill the tape back `days`, newest range first, stopping at a request budget.
 
     Every wallet goes into the same query: the topic filter takes a list, so one range costs the
@@ -81,16 +83,27 @@ def backfill(conn: sqlite3.Connection, days: int = 30, rpc: RobinhoodRPC | None 
 
     rpc = rpc or RobinhoodRPC()
     rpc.load_decimals(db.token_decimals(conn))
+    roster_key = hashlib.sha256("\n".join(sorted(wallets)).encode()).hexdigest()
+    saved = state.get(conn, "backfill") if resume else None
+    previous = saved["details"] if saved else {}
+    same = previous.get("roster") == roster_key and previous.get("days") == days
+    if same and previous.get("complete"):
+        return {"skipped": "history target complete", **previous}
     budget = max_requests if max_requests is not None else settings.backfill_max_requests
     floor = settings.backfill_min_window_blocks
-    head = rpc.block_number()
+    head = previous["next_block"] if same else rpc.block_number()
     head_ts = rpc.block_timestamp(head)
-    since = db.now() - days * 86400
+    since = previous["since"] if same else db.now() - days * 86400
+    progress = {"roster": roster_key, "days": days, "since": since,
+                "next_block": head, "complete": False,
+                "oldest_scanned_ts": previous.get("oldest_scanned_ts") if same else None}
 
     # A stack rather than a loop, because a range that will not answer becomes two ranges.
     pending = list(rpc.windows(since, head=head, span=settings.backfill_window_blocks))
     pending.reverse()   # newest ends up on top
 
+    if resume:
+        state.put(conn, "backfill", "running", progress)
     while pending:
         if rpc.requests >= budget:
             stats["stopped_early"] = True
@@ -113,6 +126,9 @@ def backfill(conn: sqlite3.Connection, days: int = 30, rpc: RobinhoodRPC | None 
                 continue
             stats["failed"] += 1
             log.warning("backfill %d..%d gave up: %s", first, last, text)
+            if resume:
+                state.put(conn, "backfill", "error", {**progress, "error": text[:300]})
+                break  # never checkpoint past a failed range
             continue
 
         stats["ranges"] += 1
@@ -120,7 +136,19 @@ def backfill(conn: sqlite3.Connection, days: int = 30, rpc: RobinhoodRPC | None 
         stats["fills"] += f
         stats["new"] += n
         stats["reached_h"] = max(stats["reached_h"], (head - first) * 0.1 / 3600)
+        if resume:
+            progress["next_block"] = max(0, first - 1)
+            progress["oldest_scanned_ts"] = rpc.block_timestamp(first)
+            progress["complete"] = not pending
+            state.put(conn, "backfill", "complete" if not pending else "collecting",
+                      progress, success=True)
 
     stats["requests"] = rpc.requests
+    if resume and not pending and not stats["failed"]:
+        progress["complete"] = True
+        state.put(conn, "backfill", "complete", progress, success=True)
+    from .provenance import classify, refresh_medians
+    stats["kinds"] = classify(conn, since=0)
+    refresh_medians(conn)
     log.info("backfill: %s", stats)
     return stats

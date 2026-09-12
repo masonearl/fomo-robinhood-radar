@@ -29,6 +29,12 @@ log = logging.getLogger(__name__)
 TRACKED = ("candidate", "tracking", "active", "watch")
 
 
+def tracked_statuses() -> tuple[str, ...]:
+    # Free batch collection keeps low-ranked wallets observable so the automatic scorer
+    # can recover when their later record changes.
+    return db.STATUSES if settings.scorer == "rules" else TRACKED
+
+
 class Tracker(Protocol):
     def supports(self, chain: str) -> bool: ...
     def get_trades(self, address: str, chain: str = "solana", since_ts: int | None = None) -> list[Trade]: ...
@@ -112,7 +118,7 @@ def track_wallet(conn: sqlite3.Connection, tracker: Tracker, address: str, chain
 
 def track_all(conn: sqlite3.Connection, trackers: list[Tracker] | None = None, limit: int | None = None) -> dict:
     trackers = trackers or build_trackers()
-    rows = db.traders_by_status(conn, *TRACKED)
+    rows = db.traders_by_status(conn, *tracked_statuses())
     # least-recently-tracked first, so a large candidate pool rotates fairly under the request budget
     rows.sort(key=lambda r: r["last_tracked_ts"] or 0)
     rows = rows[: (limit or settings.track_max_wallets_per_pass)]

@@ -1,5 +1,6 @@
 """The burst rule, live and replayed, and the watcher that runs it every few seconds."""
 from __future__ import annotations
+import pytest
 
 from fomo_agent import db
 from fomo_agent.bot import fmt_hot, fmt_hot_list
@@ -146,9 +147,11 @@ def test_a_bursting_token_without_a_name_is_named_on_the_spot(tmp_path, monkeypa
     assert conn.execute("SELECT symbol FROM tokens WHERE mint=?", (TOKEN,)).fetchone()[0] == "NAMED"
 
 
-def test_one_tick_reads_only_the_blocks_since_last_time_and_writes_the_fills(tmp_path, monkeypatch):
+@pytest.mark.parametrize("scorer,roster_size", [("manual", 4), ("rules", 5)])
+def test_one_tick_reads_only_the_blocks_since_last_time_and_writes_the_fills(tmp_path, monkeypatch, scorer, roster_size):
     conn = db.connect(tmp_path / "w.db")
     now = db.now()
+    monkeypatch.setattr(settings, "scorer_mode", scorer)
     seed(conn, now)
     monkeypatch.setattr(settings, "hot_delta", 99.0)   # nothing bursts in this test
     fill = Trade(sig="new1", address=W[1], chain="robinhood", mint=TOKEN, side="buy",
@@ -159,7 +162,7 @@ def test_one_tick_reads_only_the_blocks_since_last_time_and_writes_the_fills(tmp
     first = watch.tick(conn, w, now)
     assert first["from"] == 10_000 - settings.watch_start_back_blocks, "a minute back, not zero"
     assert first["fills"] == 1 and chain.decimals_loaded
-    assert chain.scans[0][0] == 4, "the roster is the tracked robinhood wallets, dud excluded"
+    assert chain.scans[0][0] == roster_size, "rules mode observes later activity from dropped wallets"
 
     chain.head_block = 10_200
     second = watch.tick(conn, w, now)

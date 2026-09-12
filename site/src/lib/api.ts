@@ -7,6 +7,13 @@ export type Stats = {
   fills: number; positions: number; open_pnl: number; tokens: number; updated_ts: number | null;
 };
 
+export type SystemStatus = {
+  state: string; scorer: string; wallets: number; scored: number; signal_eligible: number;
+  last_score_at: number | null; cost_buffer_bps: number; history_status: string;
+  checks: { name: string; ok: boolean; age_s: number | null; detail: string }[];
+  history: { days: number; complete: boolean; oldest_scanned_ts: number | null } | null;
+};
+
 export type Signal = {
   mint: string; sym: string; liq: number | null; buyers: number; usd: number | null;
   first_ts: number; avg_score: number; conviction: number; who: string[]; scores: number[];
@@ -71,6 +78,9 @@ export type Position = {
 export type Trader = {
   address: string; handle: string | null; chain: string; score: number | null; status: string;
   summary: string | null; model: string | null; style: string[]; red_flags: string[];
+  score_evidence?: { verified_fills: number; closed_cycles: number; closed_tokens: number;
+    matched_pnl_usd: number; observed_span_hours: number; unknown_cost_tokens: number; caveat: string };
+  score_confidence?: number;
   stats: Record<string, number | null>; fomo_pnl: number | null;
   positions: Position[]; closed: Position[]; open_pnl: number | null; book_value: number | null;
   realized_usd: number | null; round_trips: number; wins: number;

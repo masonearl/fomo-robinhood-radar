@@ -152,9 +152,12 @@ def test_holdings_are_stored_and_re_read_when_stale(tmp_path):
     assert db.holdings_for(conn, wallet)[token][0] == 0.0, "a zero overwrites, it does not vanish"
 
 
-def test_backfill_widens_the_shallowest_histories_first(tmp_path):
+@pytest.mark.parametrize("scorer", ["manual", "rules"])
+def test_backfill_widens_the_shallowest_histories_first(tmp_path, monkeypatch, scorer):
     """A repeated run should reach the wallets we know least about, not deepen the deepest."""
     from fomo_agent.pipeline.backfill import wallets_to_backfill
+    from fomo_agent.config import settings
+    monkeypatch.setattr(settings, "scorer_mode", scorer)
 
     conn = db.connect(tmp_path / "bf.db")
     now = db.now()
@@ -171,7 +174,8 @@ def test_backfill_widens_the_shallowest_histories_first(tmp_path):
     order = wallets_to_backfill(conn)
     assert order.index(shallow) < order.index(deep), "an hour of history before a month of it"
     assert untouched in order, "a wallet with no tape at all still needs one"
-    assert "0x" + "d" * 40 not in order, "a dropped wallet is not worth the requests"
+    assert ("0x" + "d" * 40 in order) == (scorer == "rules"), (
+        "automatic rules keep collecting dropped wallets so a later record can recover")
 
 
 def test_backfill_narrows_a_range_the_endpoint_refuses(tmp_path, monkeypatch):

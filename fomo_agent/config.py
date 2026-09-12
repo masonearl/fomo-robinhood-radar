@@ -224,6 +224,17 @@ class Settings:
     new_tokens_interval: int = field(default_factory=lambda: _int("NEW_TOKENS_INTERVAL", 900))
     track_interval: int = field(default_factory=lambda: _int("TRACK_INTERVAL", 10800))
     report_interval: int = field(default_factory=lambda: _int("REPORT_INTERVAL", 86400))
+    score_interval: int = field(default_factory=lambda: _int("SCORE_INTERVAL", 900))
+    pipeline_stale_s: int = field(default_factory=lambda: _int("PIPELINE_STALE_S", 180))
+    local_backfill_days: int = field(default_factory=lambda: _int("LOCAL_BACKFILL_DAYS", 0))
+    local_backfill_requests: int = field(default_factory=lambda: _int("LOCAL_BACKFILL_REQUESTS", 20))
+    rule_lookback_days: int = field(default_factory=lambda: _int("RULE_LOOKBACK_DAYS", 30))
+    rule_min_trades: int = field(default_factory=lambda: _int("RULE_MIN_TRADES", 20))
+    rule_min_cycles: int = field(default_factory=lambda: _int("RULE_MIN_CYCLES", 8))
+    rule_min_tokens: int = field(default_factory=lambda: _int("RULE_MIN_TOKENS", 4))
+    rule_min_history_hours: float = field(default_factory=lambda: _float("RULE_MIN_HISTORY_HOURS", 24))
+    rule_cost_buffer_bps: float = field(default_factory=lambda: _float("RULE_COST_BUFFER_BPS", 30))
+    rule_max_open_cost_ratio: float = field(default_factory=lambda: _float("RULE_MAX_OPEN_COST_RATIO", 1))
 
     # rate limits
     fomo_rps: float = field(default_factory=lambda: _float("FOMO_RPS", 1.0))
@@ -255,6 +266,7 @@ class Settings:
     deep_top_n: int = 20
     # "api"    - call the Anthropic API (needs ANTHROPIC_API_KEY)
     # "manual" - export contexts to a file, score them inside a Claude chat, import back
+    # "rules"  - free, automatic ranking from verified local position cycles
     # "auto"   - api when a key is present, otherwise manual
     codex_monthly_request_cap: int = field(default_factory=lambda: _int("CODEX_MONTHLY_REQUEST_CAP", 10_000))
     scorer_mode: str = field(default_factory=lambda: _env("SCORER", "auto").lower())
@@ -263,7 +275,7 @@ class Settings:
     @property
     def scorer(self) -> str:
         """Resolved scoring backend: 'api' or 'manual'."""
-        if self.scorer_mode in ("api", "manual"):
+        if self.scorer_mode in ("api", "manual", "rules"):
             return self.scorer_mode
         return "api" if self.anthropic_api_key else "manual"
 

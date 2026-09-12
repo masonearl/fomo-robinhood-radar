@@ -135,7 +135,9 @@ def call_claude(ctx: dict, model: str) -> tuple[ScoreResult, float]:
     import anthropic
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key or None)
-    user = json.dumps(ctx, separators=(",", ":"))[:2048]
+    # Keep valid JSON and the complete evidence; a character slice could discard the book
+    # or cut a number/string in half. Context size is already bounded by build_context.
+    user = json.dumps(ctx, separators=(",", ":"))
     last_err: Exception | None = None
     cost = 0.0
     for attempt in range(2):
@@ -335,11 +337,13 @@ def import_results(conn: sqlite3.Connection, path: Path, model: str = "manual") 
     return stats
 
 
-def apply_score(conn: sqlite3.Connection, address: str, res: ScoreResult, model: str) -> None:
+def apply_score(conn: sqlite3.Connection, address: str, res: ScoreResult, model: str,
+                evidence: dict | None = None) -> None:
     with db.tx(conn):
         conn.execute(
             "UPDATE traders SET score=?, status=?, tags=?, ai_summary=?, ai_scored_at=?, ai_model=? WHERE address=?",
-            (res.score, res.status, json.dumps({"style": res.style, "red_flags": res.red_flags}),
+            (res.score, res.status, json.dumps({"style": res.style, "red_flags": res.red_flags,
+                                              "confidence": res.confidence, "evidence": evidence}),
              res.summary, db.now(), model, address),
         )
         db.add_score_history(conn, address, res.score, res.status, model, res.summary)
@@ -353,6 +357,12 @@ def needs_rescore(row: sqlite3.Row) -> bool:
 
 
 def score_trader(conn: sqlite3.Connection, address: str, model: str | None = None) -> tuple[ScoreResult | None, float]:
+    if settings.scorer == "rules":
+        from .rules import evidence, judge, MODEL
+        data = evidence(conn, address)
+        result = judge(data)
+        apply_score(conn, address, result, MODEL, evidence=data)
+        return result, 0.0
     model = model or settings.score_model
     ctx = build_context(conn, address)
     try:
@@ -367,6 +377,9 @@ def score_trader(conn: sqlite3.Connection, address: str, model: str | None = Non
 
 
 def score_all(conn: sqlite3.Connection, *, deep: bool = False, force: bool = False, limit: int | None = None) -> dict:
+    if settings.scorer == "rules":
+        from .rules import score_all as run_rules
+        return run_rules(conn, limit=limit)
     if settings.scorer == "manual":
         out = Path(settings.manual_scores_path)
         stats = export_contexts(conn, out, force=force, limit=limit)

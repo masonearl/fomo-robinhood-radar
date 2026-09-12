@@ -7,13 +7,14 @@ import Token from '../components/Token.astro';
 import Spark from '../components/Spark.astro';
 import Panel from '../components/Panel.astro';
 import Ident from '../components/Ident.astro';
-import { getSignals, getStats, get, usd, ago, type Signal } from '../lib/api';
+import { getSignals, getStats, get, usd, ago, type Signal, type SystemStatus } from '../lib/api';
 
 const hours = Number(Astro.url.searchParams.get('hours') ?? 24);
-const [stats, feed, pulse] = await Promise.all([
+const [stats, feed, pulse, system] = await Promise.all([
   getStats(),
   getSignals(hours, 40),
   get<{ hours: number; series: number[]; total: number; peak: number }>('/api/activity?hours=48'),
+  get<SystemStatus>('/api/system'),
 ]);
 const signals: Signal[] = feed?.signals ?? [];
 const top = signals.length ? Math.max(...signals.map((s) => s.conviction)) : 1;
@@ -53,8 +54,12 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
             <div><dt>Wallets discovered</dt><dd>{stats?.traders ?? '—'}</dd></div>
             <div><dt>On-chain fills collected</dt><dd>{stats?.fills.toLocaleString('en-US') ?? '—'}</dd></div>
             <div><dt>Wallets scored</dt><dd>{stats?.scored ?? '—'}</dd></div>
+            <div><dt>Signal eligible</dt><dd>{system?.signal_eligible ?? '—'}</dd></div>
           </dl>
-          <p>Scoring mode: manual review. The collector saves wallet history for review before it enters the trusted signal feeds.</p>
+          <p>Scoring: {system?.scorer === 'rules' ? 'automatic local rules' : system?.scorer ?? 'unavailable'}.
+            {system?.state === 'collecting_evidence' ? ' Gathering the verified history needed for signal eligibility.' :
+             system?.state === 'ready' ? ' The signal pipeline is ready.' : ' Check the pipeline status below.'}</p>
+          <a class="btn" href="/leaderboard?status=all">View every wallet</a>
         </div>
       ) : <Brain />}
     </div>
@@ -64,6 +69,19 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
   <Token />
 
   <!-- ── instrument strip ───────────────────────────────────── -->
+  {localMode && <section class="pipeline-health" aria-label="Pipeline status">
+    <h2>Pipeline status</h2>
+    {system ? <ul>
+      {system.checks.map((check) => <li>
+        <strong class={check.ok ? 'g' : 'y'}>{check.ok ? 'OK' : 'Check'}</strong>
+        <span>{check.name} · {check.detail}
+          {check.age_s !== null && ` · ${Math.floor(check.age_s)}s ago`}</span>
+      </li>)}
+    </ul> : <p>The status service is unavailable.</p>}
+    {system?.history && <p>History: {system.history_status} · target {system.history.days} days
+      {system.history.oldest_scanned_ts && ` · scanned back to ${new Date(system.history.oldest_scanned_ts * 1000).toLocaleString('en-US', {timeZone: 'UTC'})} UTC`}</p>}
+    <p>Data refreshes every 30 seconds while this page is visible and you are not using the search box.</p>
+  </section>}
   {stats && stats.scored === 0 && <p class="empty">Collecting history for {stats.traders} wallets. No wallets have been scored yet, so the trusted signal feeds are empty.</p>}
   {!down && (
     <div class="rack">
@@ -158,6 +176,15 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
       </p>
     </div>
   )}
+  {localMode && <script is:inline>
+    window.setInterval(() => {
+      const focused = document.activeElement;
+      if (!document.hidden && !(focused instanceof HTMLInputElement) &&
+          !(focused instanceof HTMLTextAreaElement) && !focused?.isContentEditable) {
+        window.location.reload();
+      }
+    }, 30000);
+  </script>}
 </Base>
 
 <style>
@@ -175,6 +202,11 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
     overflow: hidden;
   }
   .hero-brain { position: relative; min-width: 0; }
+  .pipeline-health { margin: 25px 0; padding: 20px; border: 1px solid #263d31; }
+  .pipeline-health h2 { font-size: 18px; margin-bottom: 12px; }
+  .pipeline-health ul { list-style: none; padding: 0; }
+  .pipeline-health li { display: flex; gap: 12px; padding: 8px 0; font-size: 14px; }
+  .pipeline-health p { font-size: 13px; color: #b3cbbc; margin-top: 12px; }
   .local-pipeline { margin: 35px 0; padding: 25px; background: #101a15; border: 1px solid #263d31; }
   .local-pipeline dl { margin: 20px 0; }
   .local-pipeline dl div { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid #263d31; }

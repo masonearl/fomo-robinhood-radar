@@ -687,6 +687,7 @@ def run(once: bool = typer.Option(False, "--once", help="single pass of every st
     from .pipeline import resolve as rs
     from .pipeline import score as sc
     from .pipeline import track as tr
+    from .pipeline.backfill import backfill
     from .pipeline.discover import safe_fomo
     from .pipeline.report import build_report
 
@@ -705,12 +706,16 @@ def run(once: bool = typer.Option(False, "--once", help="single pass of every st
         # free on Robinhood Chain, and it is what turns collected fomo users into trackable wallets
         ("resolve", settings.discover_interval, lambda c: rs.resolve_pending(c)),
         ("track", settings.track_interval, lambda c: tr.track_all(c)),
+        ("backfill", settings.track_interval,
+         lambda c: backfill(c, days=settings.local_backfill_days,
+                            max_requests=settings.local_backfill_requests, resume=True)
+         if settings.local_backfill_days else {"skipped": "local history warmup disabled"}),
         # bare contract addresses are useless on the page, and naming them costs nothing
         ("enrich_tokens", settings.track_interval, lambda c: nt.enrich_tokens(c)),
         # what a wallet holds is a free read, and without it every position is only as complete
         # as the fills we happened to watch
         ("holdings", settings.track_interval, lambda c: hd.mark_holdings(c)),
-        ("score", settings.track_interval * 10, lambda c: sc.score_all(c)),
+        ("score", settings.score_interval, lambda c: sc.score_all(c)),
         ("report", settings.report_interval, do_report),
     ]
     last: dict[str, float] = {k: 0.0 for k, _, _ in steps}

@@ -98,6 +98,9 @@ def install(node: str) -> None:
 
 
 def start() -> None:
+    # Complete schema migrations once before four processes open the database together.
+    subprocess.run([str(PYTHON), "-m", "fomo_agent.cli", "init"],
+                   cwd=ROOT, env=environment(), check=True, stdout=subprocess.DEVNULL)
     for name in SERVICES:
         if not plist_path(name).exists():
             raise SystemExit(f"Missing {plist_path(name)}; run install first.")
@@ -121,7 +124,7 @@ def status() -> None:
         details = [line.strip() for line in result.stdout.splitlines()
                    if line.strip().startswith(("state =", "pid =", "last exit code ="))]
         print(f"{name}: {', '.join(details) if result.returncode == 0 else 'not loaded'}")
-    for endpoint in ("health", "stats"):
+    for endpoint in ("health", "stats", "system"):
         try:
             with urlopen(f"http://127.0.0.1:8767/api/{endpoint}", timeout=5) as response:
                 print(f"{endpoint}: {json.dumps(json.load(response))}")

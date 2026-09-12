@@ -595,6 +595,7 @@ def analyze_trader(conn: sqlite3.Connection, who: str, hours: int = 168) -> dict
         "address": address, "handle": row["fomo_handle"], "chain": row["chain"],
         "score": row["score"], "status": row["status"], "summary": row["ai_summary"],
         "model": row["ai_model"], "style": tags.get("style") or [],
+        "score_evidence": tags.get("evidence"), "score_confidence": tags.get("confidence"),
         "red_flags": tags.get("red_flags") or [], "stats": stats,
         "fomo_pnl": row["pnl_30d"] or row["pnl_7d"] or row["pnl_24h"],
         # the whole book: what is still held, what was closed, and what the closed part earned

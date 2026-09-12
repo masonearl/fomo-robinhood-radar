@@ -5,8 +5,14 @@
 This fork has a macOS analytics installation with four managed local services:
 API (127.0.0.1:8767), site (127.0.0.1:4322), collector, and 20-second watcher.
 Initial collection: 147 discovered wallets, 546 direct-RPC fills, zero errors.
-Scoring is manual and unscored contexts can be exported; no model API key or
-brokerage execution is configured. Upstream tests: 195 passed. Astro build passed.
+Follow-up: automatic local scoring now runs every collector cycle and all 147
+wallets have an auditable score. Limited evidence stays below the signal cutoff.
+The collector resumes a seven-day history target from a durable block checkpoint.
+The watcher writes a heartbeat on quiet ticks as well as active ones; the local
+dashboard shows watcher, collection, and scoring freshness separately.
+No model API key or brokerage execution is configured. Tests: 207 passed, including
+synthetic end-to-end scoring/burst checks and restart/checkpoint regressions.
+The production Astro build and live collection/scoring cycle passed.
 See [LOCAL_SETUP.md](LOCAL_SETUP.md) for commands, current source configuration,
 history limitations, and remaining scoring setup. Upstream historical notes below
 describe the author's deployment, not this new local database.
