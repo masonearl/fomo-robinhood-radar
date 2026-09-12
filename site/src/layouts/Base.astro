@@ -73,7 +73,10 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
       </nav>
     </header>
 
-    {localMode && <p class="local-instance">Mason’s local Radar · wallet research · no brokerage connection or order execution</p>}
+    {localMode && <div class="local-instance">
+      <span>Mason’s local Radar · wallet research · no brokerage connection or order execution</span>
+      <a href="https://www.masonearl.com/ff#project-update">Public progress · masonearl.com/ff ↗</a>
+    </div>}
 
     <main>
       <slot />
@@ -90,5 +93,6 @@ const localMode = import.meta.env.PUBLIC_LOCAL_MODE === 'true';
 </html>
 
 <style>
-  .local-instance { padding: 12px 16px; border: 1px solid #263d31; background: #101a15; color: #b3cbbc; font-size: 13px; line-height: 1.5; }
+  .local-instance { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; margin: 13px 0; padding: 12px 16px; border: 1px solid #263d31; background: #101a15; color: #b3cbbc; font-size: 13px; line-height: 1.5; }
+  .local-instance a { color: #b3cbbc; text-decoration: underline; text-underline-offset: 3px; }
 </style>

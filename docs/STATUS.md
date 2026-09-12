@@ -13,6 +13,9 @@ dashboard shows watcher, collection, and scoring freshness separately.
 No model API key or brokerage execution is configured. Tests: 207 passed, including
 synthetic end-to-end scoring/burst checks and restart/checkpoint regressions.
 The production Astro build and live collection/scoring cycle passed.
+The local dashboard links to [the public project feed](https://www.masonearl.com/ff#project-update).
+That page publishes curated development milestones and dated aggregate research
+counts; it does not expose the local API, private database, or account credentials.
 See [LOCAL_SETUP.md](LOCAL_SETUP.md) for commands, current source configuration,
 history limitations, and remaining scoring setup. Upstream historical notes below
 describe the author's deployment, not this new local database.
