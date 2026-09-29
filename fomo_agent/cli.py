@@ -28,7 +28,13 @@ def _run(kind: str, fn, *args, **kw) -> dict | None:
     rid = db.run_start(conn, kind)
     try:
         stats = fn(conn, *args, **kw)
-        db.run_finish(conn, rid, stats)
+        # track_all preserves successful wallets while reporting per-wallet failures in stats.
+        # Such a pass must not advance the last successful collection time.
+        error = None
+        if kind == "track" and isinstance(stats, dict) and stats.get("errors", 0):
+            error = f"{stats['errors']} wallet collection errors"
+            logging.getLogger(kind).error(error)
+        db.run_finish(conn, rid, stats, error=error)
         return stats
     except Exception as e:  # noqa: BLE001
         logging.getLogger(kind).error("%s failed: %s", kind, e)

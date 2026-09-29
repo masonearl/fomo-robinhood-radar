@@ -14,9 +14,9 @@ How a fomo trade looks on chain 4663 (measured Sep 2026):
     and plain transfers that make up most of a wallet's log traffic.
   * Exactly one fill per transaction, so the trade's size is unambiguous: it is the WETH moved
     inside that transaction, and the wallet's own token leg gives the direction.
-  * Blocks land every ~0.1s. A 200k-block query spans ~5.6 hours and is the widest window the
-    endpoint serves before answering "log query timed out", so timestamps are interpolated from two
-    probes rather than fetched per block.
+  * Blocks land every ~0.1s. The configured 200k-block lookback spans ~5.6 hours.
+    Split its log requests into at most 30,000 inclusive blocks (the observed endpoint limit),
+    keeping the full lookback. Timestamps are interpolated from two probes.
 
 Requests are rate-limited: the endpoint starts returning 429 long before it returns bad data. It
 also rejects the default httpx user agent outright, hence RPC_USER_AGENT.
@@ -37,6 +37,9 @@ log = logging.getLogger(__name__)
 
 CHAIN = "robinhood"
 CHAIN_ID = 4663
+
+# Request width, independent of the configured live lookback and backfill checkpoints.
+MAX_LOG_BLOCKS = 30_000
 
 # keccak256("Transfer(address,address,uint256)")
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
@@ -143,7 +146,7 @@ def fill_usd(legs: dict[str, float], eth_price: float | None) -> float | None:
 
 
 class RobinhoodRPC:
-    """Tracker over the chain's public RPC. Two requests find the fills; receipts are batched."""
+    """Tracker over the chain's public RPC. Log ranges are bounded; receipts are batched."""
 
     def __init__(self, url: str | None = None, client: httpx.Client | None = None):
         self.url = url or settings.rpc_url
@@ -329,10 +332,18 @@ class RobinhoodRPC:
         """Every Transfer in the range where any of `wallets` is the sender (or the receiver)."""
         topics: list = [TRANSFER_TOPIC, None, None]
         topics[1 if outgoing else 2] = [topic_for(w) for w in wallets]
-        raw = self.call("eth_getLogs", [{
-            "fromBlock": hex(from_block), "toBlock": hex(to_block), "topics": topics,
-        }])
-        return [t for t in (parse_transfer(e) for e in raw) if t]
+        if not wallets:
+            return []
+        transfers = []
+        # Both endpoints are inclusive. Return only after every slice succeeds, so a failed
+        # later request cannot advance a caller's checkpoint with an incomplete range.
+        for first in range(from_block, to_block + 1, MAX_LOG_BLOCKS):
+            last = min(first + MAX_LOG_BLOCKS - 1, to_block)
+            raw = self.call("eth_getLogs", [{
+                "fromBlock": hex(first), "toBlock": hex(last), "topics": topics,
+            }])
+            transfers.extend(t for t in (parse_transfer(e) for e in raw) if t)
+        return transfers
 
     def weth_price(self) -> float | None:
         """WETH in dollars, from DexScreener — one free request, cached for the process."""
@@ -365,8 +376,8 @@ class RobinhoodRPC:
     def scan(self, wallets: list[str], first: int, last: int) -> dict[str, list[Trade]]:
         """Every routed fill in one block range, priced and sized, keyed by wallet.
 
-        The unit both the live pass and the backfill are made of. One range costs two `eth_getLogs`
-        however many wallets are in it, plus a batched receipt per fill for the dollar value, plus
+        The unit both the live pass and the backfill are made of. Each bounded log slice costs two
+        `eth_getLogs` calls however many wallets are in it, plus batched receipts for dollar value and
         one batched `decimals` call for tokens this process has not seen.
         """
         transfers = (self.transfers(wallets, first, last, outgoing=True)
@@ -440,7 +451,7 @@ class RobinhoodRPC:
     def _load(self) -> None:
         if not self._wallets:
             raise RpcError("RobinhoodRPC.prime() must be called with the wallets to index")
-        if self._fills and time.monotonic() - self._fetched_at < settings.rpc_min_interval_s:
+        if self._fetched_at and time.monotonic() - self._fetched_at < settings.rpc_min_interval_s:
             return
 
         head = self.block_number()
