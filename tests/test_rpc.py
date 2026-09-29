@@ -90,6 +90,7 @@ def test_fill_usd_prefers_the_stablecoin():
 
 def test_get_trades_costs_two_log_queries_and_two_batches(logs, receipt, monkeypatch):
     """One pass over the roster: two eth_getLogs, two block probes, receipts and decimals batched."""
+    monkeypatch.setattr(settings, "rpc_window_blocks", 29_999)
     wallet, router = logs["wallet"].lower(), logs["router"].lower()
     sent = []
 
